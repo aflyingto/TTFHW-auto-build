@@ -129,21 +129,23 @@ Error: Process completed with exit code 101
 
 **原因分析：**
 - Docker 容器内外文件所有者不匹配
-- 之前构建过程中生成的文件（如 ir_demo.json、ir_demo/）权限问题
-- 文件可能由不同用户/进程创建，导致权限冲突
+- 容器内默认以 root 用户运行，而宿主机上的文件由其他用户创建
+- 导致容器内进程无法访问或修改宿主机挂载的文件
 
 **解决方案：**
-在构建前清理可能有权限问题的文件：
+使用 `-u` 参数指定容器内的用户ID和组ID：
 ```yaml
 docker run --rm \
+  -v ${{ github.workspace }}:/workspace \
+  -u $(id -u):$(id -g) \
   swr.cn-north-4.myhuaweicloud.com/inference/ascend_mindie_ubuntu_x86:20260119_ubuntu24_3.0.0_cann8.5.0_torch2.6.0_py311 \
-  bash -c "source /usr/local/Ascend/ascend-toolkit/latest/set_env.sh && rm -rf build/ir_demo.json build/ir_demo/ && bash build/build.sh"
+  bash -c "source /usr/local/Ascend/ascend-toolkit/latest/set_env.sh && bash build/build.sh"
 ```
 
 **说明：**
-- 构建脚本需要 `ir_demo.json` 文件存在
-- 删除该文件会导致构建失败
-- 不要删除构建脚本依赖的文件
+- `-u $(id -u):$(id -g)` 让容器内进程以宿主机用户身份运行
+- 避免文件所有者不匹配的问题
+- 确保容器内进程可以正常访问和修改挂载的文件
 
 ### 3. 必要的环境变量设置
 
