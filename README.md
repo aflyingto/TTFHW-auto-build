@@ -60,16 +60,21 @@ ModuleNotFoundError: No module named 'op_gen'
 **原因分析：**
 - 构建脚本需要访问 Ascend 工具链中的 op_gen 模块
 - Docker 容器内缺少正确的 PYTHONPATH 环境变量
-- Python 无法找到 `/usr/local/Ascend/ascend-toolkit/latest/python/site-packages` 中的模块
+- Python 无法找到 `/usr/local/Ascend/ascend-toolkit/latest/python/site/packages` 中的模块
+- 未正确设置 Ascend 工具链环境
 
 **解决方案：**
-在 Docker 运行命令中添加环境变量：
+在构建前 source Ascend 环境设置脚本：
 ```yaml
 docker run --rm \
-  -e PYTHONPATH=/usr/local/Ascend/ascend-toolkit/latest/python/site-packages:$PYTHONPATH \
-  -e ASCEND_HOME=/usr/local/Ascend/ascend-toolkit/latest \
-  ...
+  swr.cn-north-4.myhuaweicloud.com/inference/ascend_mindie_ubuntu_x86:20260119_ubuntu24_3.0.0_cann8.5.0_torch2.6.0_py311 \
+  bash -c "source /usr/local/Ascend/ascend-toolkit/latest/set_env.sh && bash build/build.sh"
 ```
+
+**说明：**
+- `set_env.sh` 脚本会自动设置所有必要的环境变量
+- 包括 PYTHONPATH、ASCEND_HOME、LD_LIBRARY_PATH 等
+- 比手动设置环境变量更可靠和完整
 
 ### 2. 时间计算不一致问题
 
