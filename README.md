@@ -122,13 +122,14 @@ ModuleNotFoundError: No module named 'op_gen'
 ```yaml
 docker run --rm \
   swr.cn-north-4.myhuaweicloud.com/inference/ascend_mindie_ubuntu_x86:20260119_ubuntu24_3.0.0_cann8.5.0_torch2.6.0_py311 \
-  bash -c "source /usr/local/Ascend/ascend-toolkit/latest/set_env.sh && bash build/build.sh"
+  bash -c "source /usr/local/Ascend/ascend-toolkit/set_env.sh && python setup.py bdist_wheel"
 ```
 
 **说明：**
 - `set_env.sh` 脚本会自动设置所有必要的环境变量
 - 包括 PYTHONPATH、ASCEND_HOME、LD_LIBRARY_PATH 等
 - 比手动设置环境变量更可靠和完整
+- 正确路径是 `/usr/local/Ascend/ascend-toolkit/set_env.sh`
 
 ### 2. 文件权限错误
 
