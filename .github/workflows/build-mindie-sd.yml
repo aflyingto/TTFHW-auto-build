@@ -98,23 +98,14 @@ jobs:
         
         echo "END_TIME=$(date +%s)" >> $GITHUB_OUTPUT
     
-    - name: Clone MindIE-SD repository
-      id: clone
-      run: |
-        echo "START_TIME=$(date +%s)" >> $GITHUB_OUTPUT
-        git clone https://gitcode.com/Ascend/MindIE-SD.git mindie-sd
-        echo "END_TIME=$(date +%s)" >> $GITHUB_OUTPUT
-    
     - name: Build MindIE-SD wheel package
       id: build
       run: |
         echo "START_TIME=$(date +%s)" >> $GITHUB_OUTPUT
         docker run --rm \
           -v ${{ github.workspace }}:/workspace \
-          -w /workspace/mindie-sd \
-          -u $(id -u):$(id -g) \
           swr.cn-north-4.myhuaweicloud.com/inference/ascend_mindie_ubuntu_x86:20260119_ubuntu24_3.0.0_cann8.5.0_torch2.6.0_py311 \
-          bash -c "source /usr/local/Ascend/ascend-toolkit/set_env.sh && export TORCH_DEVICE_BACKEND_AUTOLOAD=0 && export USER_ABI_VERSION=1 && python setup.py bdist_wheel && ls -lh dist/"
+          bash -c "cd /workspace && git clone https://gitcode.com/Ascend/MindIE-SD.git mindie-sd && cd mindie-sd && source /usr/local/Ascend/ascend-toolkit/set_env.sh && export TORCH_DEVICE_BACKEND_AUTOLOAD=0 && export USER_ABI_VERSION=1 && python setup.py bdist_wheel && ls -lh dist/"
         echo "END_TIME=$(date +%s)" >> $GITHUB_OUTPUT
     
     - name: Start upload timer
@@ -137,7 +128,6 @@ jobs:
     - name: Calculate and display build statistics
       run: |
         PULL_TIME=$(( ${{ steps.pull_image.outputs.END_TIME }} - ${{ steps.pull_image.outputs.START_TIME }} ))
-        CLONE_TIME=$(( ${{ steps.clone.outputs.END_TIME }} - ${{ steps.clone.outputs.START_TIME }} ))
         BUILD_TIME=$(( ${{ steps.build.outputs.END_TIME }} - ${{ steps.build.outputs.START_TIME }} ))
         UPLOAD_TIME=$(( ${{ steps.upload_end.outputs.END_TIME }} - ${{ steps.upload_start.outputs.START_TIME }} ))
         
@@ -146,9 +136,8 @@ jobs:
         echo "| Phase | Duration (seconds) | Duration (minutes) |" >> $GITHUB_STEP_SUMMARY
         echo "|-------|-------------------|-------------------|" >> $GITHUB_STEP_SUMMARY
         echo "| Image Pull | $PULL_TIME | $(awk "BEGIN {printf \"%.2f\", $PULL_TIME/60}") |" >> $GITHUB_STEP_SUMMARY
-        echo "| Code Download | $CLONE_TIME | $(awk "BEGIN {printf \"%.2f\", $CLONE_TIME/60}") |" >> $GITHUB_STEP_SUMMARY
-        echo "| Build | $BUILD_TIME | $(awk "BEGIN {printf \"%.2f\", $BUILD_TIME/60}") |" >> $GITHUB_STEP_SUMMARY
+        echo "| Build (includes code download) | $BUILD_TIME | $(awk "BEGIN {printf \"%.2f\", $BUILD_TIME/60}") |" >> $GITHUB_STEP_SUMMARY
         echo "| Artifact Upload | $UPLOAD_TIME | $(awk "BEGIN {printf \"%.2f\", $UPLOAD_TIME/60}") |" >> $GITHUB_STEP_SUMMARY
         
-        TOTAL_TIME=$(( PULL_TIME + CLONE_TIME + BUILD_TIME + UPLOAD_TIME ))
+        TOTAL_TIME=$(( PULL_TIME + BUILD_TIME + UPLOAD_TIME ))
         echo "| **Total** | **$TOTAL_TIME** | **$(awk "BEGIN {printf \"%.2f\", $TOTAL_TIME/60}")** |" >> $GITHUB_STEP_SUMMARY
