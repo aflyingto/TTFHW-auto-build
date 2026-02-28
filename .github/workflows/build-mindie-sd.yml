@@ -114,7 +114,7 @@ jobs:
           -w /workspace/mindie-sd \
           -u $(id -u):$(id -g) \
           swr.cn-north-4.myhuaweicloud.com/inference/ascend_mindie_ubuntu_x86:20260119_ubuntu24_3.0.0_cann8.5.0_torch2.6.0_py311 \
-          bash -c "source /usr/local/Ascend/ascend-toolkit/latest/set_env.sh && export TORCH_DEVICE_BACKEND_AUTOLOAD=0 && export USER_ABI_VERSION=1 && python setup.py bdist_wheel && ls -lh dist/"
+          bash -c "source /usr/local/Ascend/ascend-toolkit/set_env.sh && export TORCH_DEVICE_BACKEND_AUTOLOAD=0 && export USER_ABI_VERSION=1 && python setup.py bdist_wheel && ls -lh dist/"
         echo "END_TIME=$(date +%s)" >> $GITHUB_OUTPUT
     
     - name: Start upload timer
