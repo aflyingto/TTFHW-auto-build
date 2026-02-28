@@ -103,6 +103,30 @@ docker run --rm \
 - 确保每次构建都从干净的状态开始
 - 避免文件权限冲突和上下文错误
 
+### 3. 必要的环境变量设置
+
+**环境变量：**
+- `TORCH_DEVICE_BACKEND_AUTOLOAD=0` - 禁用 Torch 设备后端自动加载
+- `USER_ABI_VERSION=1` - 设置用户 ABI 版本
+
+**原因分析：**
+- MindIE-SD 构建过程需要特定的环境配置
+- 禁用自动加载可以避免与 Ascend 工具链的冲突
+- ABI 版本设置确保与 CANN 工具链的兼容性
+
+**解决方案：**
+在构建前设置必要的环境变量：
+```yaml
+docker run --rm \
+  swr.cn-north-4.myhuaweicloud.com/inference/ascend_mindie_ubuntu_x86:20260119_ubuntu24_3.0.0_cann8.5.0_torch2.6.0_py311 \
+  bash -c "source /usr/local/Ascend/ascend-toolkit/latest/set_env.sh && export TORCH_DEVICE_BACKEND_AUTOLOAD=0 && export USER_ABI_VERSION=1 && bash build/build.sh"
+```
+
+**说明：**
+- 这些环境变量必须在 source set_env.sh 之后设置
+- 确保与 MindIE-SD 和 CANN 工具链的正确集成
+- 避免运行时 ABI 不兼容问题
+
 ### 2. 时间计算不一致问题
 
 **问题描述：**
