@@ -73,9 +73,9 @@ jobs:
       uses: actions/cache@v4
       with:
         path: /tmp/docker-image.tar
-        key: docker-image-${{ hashFiles('**/build-mindie-sd.yml') }}
+        key: docker-image-ascend-mindie-ubuntu-x86-20260119
         restore-keys: |
-          docker-image-
+          docker-image-ascend-mindie-ubuntu-x86-
     
     - name: Pull Docker image
       id: pull_image
@@ -84,12 +84,15 @@ jobs:
         
         IMAGE_NAME="swr.cn-north-4.myhuaweicloud.com/inference/ascend_mindie_ubuntu_x86:20260119_ubuntu24_3.0.0_cann8.5.0_torch2.6.0_py311"
         
-        if [ -f /tmp/docker-image.tar ]; then
+        echo "Cache hit status: ${{ steps.cache_image.outputs.cache-hit }}"
+        
+        if [ "${{ steps.cache_image.outputs.cache-hit }}" == "true" ] && [ -f /tmp/docker-image.tar ]; then
           echo "Loading Docker image from cache..."
-          docker load -i /tmp/docker-image.tar || docker pull $IMAGE_NAME
+          docker load -i /tmp/docker-image.tar
         else
-          echo "Pulling Docker image..."
+          echo "Pulling Docker image from registry..."
           docker pull $IMAGE_NAME
+          echo "Saving Docker image to cache..."
           docker save $IMAGE_NAME -o /tmp/docker-image.tar
         fi
         

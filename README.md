@@ -49,6 +49,48 @@ swr.cn-north-4.myhuaweicloud.com/inference/ascend_mindie_ubuntu_x86:20260119_ubu
 
 ## 常见问题与解决方案
 
+### Docker 镜像缓存失效问题
+
+**问题描述：**
+每次 workflow 运行都重新拉取 Docker 镜像，缓存没有生效。
+
+**原因分析：**
+1. **缓存键不稳定**：原缓存键基于 workflow 文件的 hash，每次修改 workflow 文件都会改变缓存键
+2. **缓存命中检测错误**：没有正确使用 `cache-hit` 输出来判断缓存状态
+3. **频繁的 workflow 修改**：由于持续优化 workflow，缓存键不断变化
+
+**解决方案：**
+使用固定的缓存键，基于镜像名称而不是 workflow 文件：
+```yaml
+- name: Cache Docker image
+  id: cache_image
+  uses: actions/cache@v4
+  with:
+    path: /tmp/docker-image.tar
+    key: docker-image-ascend-mindie-ubuntu-x86-20260119
+    restore-keys: |
+      docker-image-ascend-mindie-ubuntu-x86-
+
+- name: Pull Docker image
+  id: pull_image
+  run: |
+    echo "Cache hit status: ${{ steps.cache_image.outputs.cache-hit }}"
+    
+    if [ "${{ steps.cache_image.outputs.cache-hit }}" == "true" ] && [ -f /tmp/docker-image.tar ]; then
+      echo "Loading Docker image from cache..."
+      docker load -i /tmp/docker-image.tar
+    else
+      echo "Pulling Docker image from registry..."
+      docker pull $IMAGE_NAME
+      docker save $IMAGE_NAME -o /tmp/docker-image.tar
+    fi
+```
+
+**说明：**
+- 使用固定的缓存键，确保镜像不变时缓存有效
+- 正确使用 `cache-hit` 输出来判断缓存状态
+- 添加调试信息便于排查缓存问题
+
 ### 1. op_gen 模块找不到错误
 
 **错误信息：**
