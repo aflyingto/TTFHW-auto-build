@@ -3,8 +3,20 @@ name: MindIE-SD-TTFHW-auto-build
 on:
   push:
     branches: [ main, master ]
+    paths:
+      - '.github/workflows/build-mindie-sd.yml'
+      - 'build/**'
+      - 'src/**'
+      - 'setup.py'
+      - 'pyproject.toml'
   pull_request:
     branches: [ main, master ]
+    paths:
+      - '.github/workflows/build-mindie-sd.yml'
+      - 'build/**'
+      - 'src/**'
+      - 'setup.py'
+      - 'pyproject.toml'
   workflow_dispatch:
 
 jobs:
