@@ -109,6 +109,8 @@ jobs:
         docker run --rm \
           -v ${{ github.workspace }}:/workspace \
           -w /workspace/mindie-sd \
+          -e PYTHONPATH=/usr/local/Ascend/ascend-toolkit/latest/python/site-packages:$PYTHONPATH \
+          -e ASCEND_HOME=/usr/local/Ascend/ascend-toolkit/latest \
           swr.cn-north-4.myhuaweicloud.com/inference/ascend_mindie_ubuntu_x86:20260119_ubuntu24_3.0.0_cann8.5.0_torch2.6.0_py311 \
           bash -c "bash build/build.sh && ls -lh dist/"
         echo "END_TIME=$(date +%s)" >> $GITHUB_OUTPUT
@@ -117,7 +119,6 @@ jobs:
       id: upload_start
       run: |
         echo "START_TIME=$(date +%s)" >> $GITHUB_OUTPUT
-        echo ${{ steps.upload_start.outputs.START_TIME }} > /tmp/upload_start.txt
     
     - name: Upload wheel artifacts
       uses: actions/upload-artifact@v4
@@ -136,8 +137,7 @@ jobs:
         PULL_TIME=$(( ${{ steps.pull_image.outputs.END_TIME }} - ${{ steps.pull_image.outputs.START_TIME }} ))
         CLONE_TIME=$(( ${{ steps.clone.outputs.END_TIME }} - ${{ steps.clone.outputs.START_TIME }} ))
         BUILD_TIME=$(( ${{ steps.build.outputs.END_TIME }} - ${{ steps.build.outputs.START_TIME }} ))
-        UPLOAD_START=$(cat /tmp/upload_startkt.txt)
-        UPLOAD_TIME=$(( ${{ steps.upload_end.outputs.END_TIME }} - UPLOAD_START ))
+        UPLOAD_TIME=$(( ${{ steps.upload_end.outputs.END_TIME }} - ${{ steps.upload_start.outputs.START_TIME }} ))
         
         echo "## Build Time Statistics" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
