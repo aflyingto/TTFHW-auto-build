@@ -76,6 +76,33 @@ docker run --rm \
 - 包括 PYTHONPATH、ASCEND_HOME、LD_LIBRARY_PATH 等
 - 比手动设置环境变量更可靠和完整
 
+### 2. 文件权限错误
+
+**错误信息：**
+```
+Error: -28 16:42:17 (58) - [ERROR] You are not the owner of path /workspace/mindie-sd/build/ir_demo.json
+/workspace/mindie-sd/build/build_ascendc_ops.sh: line 83: pop_var_context: head of shell_variables not a function context
+Error: Process completed with exit code 101
+```
+
+**原因分析：**
+- Docker 容器内外文件所有者不匹配
+- 之前构建过程中生成的文件（如 ir_demo.json、ir_demo/）权限问题
+- 文件可能由不同用户/进程创建，导致权限冲突
+
+**解决方案：**
+在构建前清理可能有权限问题的文件：
+```yaml
+docker run --rm \
+  swr.cn-north-4.myhuaweicloud.com/inference/ascend_mindie_ubuntu_x86:20260119_ubuntu24_3.0.0_cann8.5.0_torch2.6.0_py311 \
+  bash -c "source /usr/local/Ascend/ascend-toolkit/latest/set_env.sh && rm -rf build/ir_demo.json build/ir_demo/ && bash build/build.sh"
+```
+
+**说明：**
+- 在构建前删除 `build/ir_demo.json` 和 `build/ir_demo/` 目录
+- 确保每次构建都从干净的状态开始
+- 避免文件权限冲突和上下文错误
+
 ### 2. 时间计算不一致问题
 
 **问题描述：**
