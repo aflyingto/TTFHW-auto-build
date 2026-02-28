@@ -37,6 +37,18 @@ swr.cn-north-4.myhuaweicloud.com/inference/ascend_mindie_ubuntu_x86:20260119_ubu
 3. 工作流将自动触发构建
 4. 构建完成后，wheel 包将作为 artifacts 下载
 
+## 构建命令
+
+根据 MindIE-SD 官方文档，使用以下命令构建 wheel 包：
+```bash
+python setup.py bdist_wheel
+```
+
+**注意：** 
+- 官方 README 文档：https://gitcode.com/Ascend/MindIE-SD/blob/master/README.md
+- 构建入口是 `setup.py`，不是 `build.sh`
+- 需要设置正确的环境变量和 Ascend 工具链环境
+
 ## 构建统计
 
 工作流会自动统计并显示各阶段的构建时长：
