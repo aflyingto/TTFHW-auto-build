@@ -47,6 +47,58 @@ swr.cn-north-4.myhuaweicloud.com/inference/ascend_mindie_ubuntu_x86:20260119_ubu
 - Artifact Upload - 制品归档时长
 - Total - 总时长
 
+## 常见问题与解决方案
+
+### 1. op_gen 模块找不到错误
+
+**错误信息：**
+```
+ModuleNotFoundError: No module named 'op_gen'
+/workspace/mindie-sd/build/build_ascendc_ops.sh: line 83: pop_var_context: head of shell_variables not a function context
+```
+
+**原因分析：**
+- 构建脚本需要访问 Ascend 工具链中的 op_gen 模块
+- Docker 容器内缺少正确的 PYTHONPATH 环境变量
+- Python 无法找到 `/usr/local/Ascend/ascend-toolkit/latest/python/site-packages` 中的模块
+
+**解决方案：**
+在 Docker 运行命令中添加环境变量：
+```yaml
+docker run --rm \
+  -e PYTHONPATH=/usr/local/Ascend/ascend-toolkit/latest/python/site-packages:$PYTHONPATH \
+  -e ASCEND_HOME=/usr/local/Ascend/ascend-toolkit/latest \
+  ...
+```
+
+### 2. 时间计算不一致问题
+
+**问题描述：**
+- upload 时间计算使用了临时文件方式，与其他步骤的计算逻辑不一致
+- 代码中存在逻辑错误：`echo ${{ steps.upload_start.outputs.START_TIME }}` 无法获取到值
+
+**原因分析：**
+- 在 `upload_start` 步骤中引用自身的输出是无效的
+- 使用临时文件增加了不必要的复杂性和潜在错误
+
+**解决方案：**
+统一所有步骤的时间计算逻辑：
+```yaml
+- name: Start upload timer
+  id: upload_start
+  run: |
+    echo "START_TIME=$(date +%s)" >> $GITHUB_OUTPUT
+
+- name: End upload timer
+  id: upload_end
+  run: |
+    echo "END_TIME=$(date +%s)" >> $GITHUB_OUTPUT
+
+- name: Calculate time
+  run: |
+    UPLOAD_TIME=$(( ${{ steps.upload_end.outputs.END_TIME }} - ${{ steps.upload_start.outputs.START_TIME }} ))
+```
+
 ## 许可证
 
 请参考 MindIE-SD 项目的许可证。
