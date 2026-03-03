@@ -8,8 +8,10 @@
 
 - 自动生成 GitHub Actions workflow 文件
 - Docker 环境配置和依赖检查
-- Docker 镜像缓存优化
 - 构建时长统计（镜像拉取、构建、制品归档）
+- 时长统计展示在 GitHub Actions build summary
+- 制品归档到 GitHub 默认制品仓
+- Workflow 语法检查，确保无低级错误
 - 自动提交代码并推送到远端仓库
 - 完整的错误处理和故障排查
 
@@ -67,11 +69,10 @@ on:
 1. **Checkout code** - 检出代码
 2. **Set up Docker Buildx** - 设置 Docker Buildx
 3. **Check Docker environment dependencies** - 检查 Docker 环境
-4. **Cache Docker image** - 缓存 Docker 镜像
-5. **Pull Docker image** - 拉取 Docker 镜像
-6. **Build MindIE-SD wheel package** - 构建 wheel 包
-7. **Upload wheel artifacts** - 上传构建产物
-8. **Calculate and display build statistics** - 显示构建统计
+4. **Pull Docker image** - 拉取 Docker 镜像
+5. **Build MindIE-SD wheel package** - 构建 wheel 包
+6. **Upload wheel artifacts** - 上传构建产物到 GitHub 默认制品仓
+7. **Calculate and display build statistics** - 显示构建统计到 build summary
 
 ## 核心实现
 
@@ -81,17 +82,6 @@ docker run --rm \
   -v ${{ github.workspace }}:/workspace \
   swr.cn-north-4.myhuaweicloud.com/inference/ascend_mindie_ubuntu_x86:20260119_ubuntu24_3.0.0_cann8.5.0_torch2.6.0_py311 \
   bash -c "cd /workspace && git clone https://gitcode.com/Ascend/MindIE-SD.git mindie-sd && cd mindie-sd && source /usr/local/Ascend/ascend-toolkit/set_env.sh && export TORCH_DEVICE_BACKEND_AUTOLOAD=0 && export USER_ABI_VERSION=1 && python setup.py bdist_wheel && ls -lh dist/"
-```
-
-### 镜像缓存策略
-```yaml
-- name: Cache Docker image
-  uses: actions/cache@v4
-  with:
-    path: /tmp/docker-image.tar
-    key: docker-image-ascend-mindie-ubuntu-x86-20260119
-    restore-keys: |
-      docker-image-ascend-mindie-ubuntu-x86-
 ```
 
 ## 常见问题与解决方案
@@ -125,15 +115,106 @@ docker run --rm \
   bash -c "cd /workspace && git clone https://gitcode.com/Ascend/MindIE-SD.git mindie-sd && ..."
 ```
 
-### 3. Docker 镜像缓存失效
+### 3. Workflow 语法检查
 
-**问题：**
-每次 workflow 运行都重新拉取 Docker 镜像
+**要求：**
+生成的 workflow 需要进行基本的语法检查，确保没有低级错误。
 
-**解决方案：**
-使用固定的缓存键，基于镜像名称而不是 workflow 文件：
+**实现方法：**
+在提交前使用 YAML 语法检查工具：
+```bash
+# 安装 yamllint
+pip install yamllint
+
+# 检查 workflow 文件
+yamllint .github/workflows/build-mindie-sd.yml
+
+# 或者使用 GitHub Actions 的在线验证
+# 提交后 GitHub Actions 会自动验证语法
+```
+
+**验证要点：**
+- YAML 缩进正确
+- 变量引用格式正确
+- 引号匹配
+- 列表和字典格式正确
+- GitHub Actions 语法符合规范
+
+### 4. 制品归档到 GitHub 默认制品仓
+
+**要求：**
+构建产物需要归档到 GitHub 的默认制品仓。
+
+**实现方法：**
+使用 `actions/upload-artifact@v4`：
 ```yaml
-key: docker-image-ascend-mindie-ubuntu-x86-20260119
+- name: Upload wheel artifacts
+  uses: actions/upload-artifact@v4
+  with:
+    name: mindie-sd-wheel
+    path: mindie-sd/dist/*.whl
+    retention-days: 30
+```
+
+**说明：**
+- GitHub 默认制品仓存储限制：10GB
+- 制品保留时间：30天（可配置）
+- 制品可以在 GitHub Actions 界面直接下载
+- 不需要额外的存储配置
+
+### 5. 构建时长统计展示在 Build Summary
+
+**要求：**
+构建时长统计需要展示在 GitHub Actions 的 build summary 中。
+
+**实现方法：**
+使用 `$GITHUB_STEP_SUMMARY` 环境变量：
+```yaml
+- name: Calculate and display build statistics
+  run: |
+    PULL_TIME=$(( ${{ steps.pull_image.outputs.END_TIME }} - ${{ steps.pull_image.outputs.START_TIME }} ))
+    BUILD_TIME=$(( ${{ steps.build.outputs.END_TIME }} - ${{ steps.build.outputs.START_TIME }} ))
+    UPLOAD_TIME=$(( ${{ steps.upload_end.outputs.END_TIME }} - ${{ steps.upload_start.outputs.START_TIME }} ))
+    
+    echo "## Build Time Statistics" >> $GITHUB_STEP_SUMMARY
+    echo "" >> $GITHUB_STEP_SUMMARY
+    echo "| Phase | Duration (seconds) | Duration (minutes) |" >> $GITHUB_STEP_SUMMARY
+    echo "|-------|-------------------|-------------------|" >> $GITHUB_STEP_SUMMARY
+    echo "| Image Pull | $PULL_TIME | $(awk "BEGIN {printf \"%.2f\", $PULL_TIME/60}") |" >> $GITHUB_STEP_SUMMARY
+    echo "| Build (includes code download) | $BUILD_TIME | $(awk "BEGIN {printf \"%.2f\", $BUILD_TIME/60}") |" >> $GITHUB_STEP_SUMMARY
+    echo "| Artifact Upload | $UPLOAD_TIME | $(awk "BEGIN {printf \"%.2f\", $UPLOAD_TIME/60}") |" >> $GITHUB_STEP_SUMMARY
+    
+    TOTAL_TIME=$(( PULL_TIME + BUILD_TIME + UPLOAD_TIME ))
+    echo "| **Total** | **$TOTAL_TIME** | **$(awk "BEGIN {printf \"%.2f\", $TOTAL_TIME/60}")** |" >> $GITHUB_STEP_SUMMARY
+```
+
+**显示效果：**
+- 统计表格会显示在 workflow 运行页面的 Summary 部分
+- 包含各阶段的秒数和分钟数
+- 支持表格格式，易于阅读
+- 自动计算总时长
+
+### 6. 删除 Docker 镜像缓存步骤
+
+**要求：**
+移除 Docker 镜像缓存步骤，简化 workflow。
+
+**原因分析：**
+- GitHub Actions 缓存空间有限（10GB）
+- 镜像文件较大，缓存效果不明显
+- 增加了 workflow 复杂度
+- 网络拉取速度在 GitHub Actions 环境中通常较快
+
+**实现方法：**
+直接拉取镜像，不使用缓存：
+```yaml
+- name: Pull Docker image
+  id: pull_image
+  run: |
+    echo "START_TIME=$(date +%s)" >> $GITHUB_OUTPUT
+    IMAGE_NAME="swr.cn-north-4.myhuaweicloud.com/inference/ascend_mindie_ubuntu_x86:20260119_ubuntu24_3.0.0_cann8.5.0_torch2.6.0_py311"
+    docker pull $IMAGE_NAME
+    echo "END_TIME=$(date +%s)" >> $GITHUB_OUTPUT
 ```
 
 ## 自动化脚本
@@ -180,9 +261,12 @@ Workflow 会自动统计并显示各阶段的构建时长：
 
 1. **在容器内操作**：所有文件操作都在 Docker 容器内进行，避免权限问题
 2. **环境变量配置**：使用 `set_env.sh` 脚本而不是手动设置环境变量
-3. **镜像缓存**：使用固定的缓存键确保缓存有效性
-4. **错误处理**：每个步骤都有清晰的错误信息和解决方案
-5. **文档维护**：及时更新 README 和故障排查指南
+3. **语法检查**：提交前使用 yamllint 检查 workflow 语法
+4. **制品归档**：使用 GitHub 默认制品仓，配置合理的保留时间
+5. **时长统计**：使用 $GITHUB_STEP_SUMMARY 在 build summary 中显示统计信息
+6. **错误处理**：每个步骤都有清晰的错误信息和解决方案
+7. **文档维护**：及时更新 README 和故障排查指南
+8. **简化流程**：移除不必要的缓存步骤，保持 workflow 简洁
 
 ## 扩展功能
 
@@ -223,8 +307,17 @@ on:
 ### 更新环境变量
 修改构建命令中的 `export` 语句
 
-### 更新缓存策略
-修改缓存键和 restore-keys 配置
+### 验证 Workflow 语法
+使用 yamllint 检查语法：
+```bash
+yamllint .github/workflows/build-mindie-sd.yml
+```
+
+### 测试 Workflow
+1. 推送代码到测试分支
+2. 在 GitHub Actions 界面查看运行状态
+3. 检查 build summary 中的时长统计
+4. 验证制品是否正确上传到制品仓
 
 ## 参考资源
 
